@@ -1,0 +1,9 @@
+.DS_Store
+simulator/__pycache__/
+simulator/cs168/__pycache__/
+simulator/examples/__pycache__/
+simulator/lib/__pycache__/
+simulator/lib/mock/__pycache__/
+simulator/lib/pbr/__pycache__/
+simulator/sim/__pycache__/
+simulator/topos/__pycache__/

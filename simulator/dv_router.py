@@ -116,7 +116,14 @@ class DVRouter(DVRouterBase):
         if force:
             for host, entry in self.table.items():
                 for port in self.ports.get_all_ports():
-                    self.send_route(port, host, entry.latency)
+                    if entry.port == port:
+                        if self.POISON_REVERSE:
+                            self.send_route(port, host, INFINITY)
+                            continue
+                        if self.SPLIT_HORIZON:
+                            continue
+                    latency = min(INFINITY, entry.latency)
+                    self.send_route(port, host,latency )
         ##### End Stages 3, 6, 7, 8, 10 #####
 
     def expire_routes(self):
@@ -126,9 +133,26 @@ class DVRouter(DVRouterBase):
         """
         
         ##### Begin Stages 5, 9 #####
+        table = self.table
+        ports = self.ports
+        expired = []
+        for host, entry in table.items():
+            if entry.has_expired:
+                expired+=[host]
+        for expiree in expired:
+            if self.POISON_EXPIRED:
+                table[expiree] = TableEntry(dst=expiree, port=table[expiree].port, latency=INFINITY, expire_time=api.current_time()+self.ROUTE_TTL)
+                continue
+            table.pop(expiree)
+            self.s_log("%s's route expired and was removed from router's forwarding table", host.name)
+            
 
         ##### End Stages 5, 9 #####
-
+    def addEntry(self, route_dst, route_latency, port):
+        table = self.table
+        ports = self.ports
+        table[route_dst] = TableEntry(dst=route_dst, port=port, latency=ports.get_latency(port) + route_latency, expire_time= api.current_time() + self.ROUTE_TTL)
+    
     def handle_route_advertisement(self, route_dst, route_latency, port):
         """
         Called when the router receives a route advertisement from a neighbor.
@@ -140,6 +164,19 @@ class DVRouter(DVRouterBase):
         """
         
         ##### Begin Stages 4, 10 #####
+        table = self.table
+        ports = self.ports
+        if route_dst not in table:
+            self.addEntry(route_dst, route_latency, port)
+            return
+        entry = table[route_dst]
+        new_cost = ports.get_latency(port) + route_latency
+        old_cost = entry.latency
+        if  new_cost < old_cost:
+            self.addEntry(route_dst, route_latency, port)
+        
+        if port == entry.port:
+            self.addEntry(route_dst, route_latency, port)
 
         ##### End Stages 4, 10 #####
 

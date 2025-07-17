@@ -177,21 +177,17 @@ class DVRouter(DVRouterBase):
         
         ##### Begin Stages 4, 10 #####
         table, ports = self.table, self.ports
-        changed = False
         if route_dst not in table:
             self.addEntry(route_dst, route_latency, port)
-            changed = True
         else:
             entry = table[route_dst]
             new_cost = ports.get_latency(port) + route_latency
             if new_cost < entry.latency:
                 self.addEntry(route_dst, route_latency, port)
-                changed = True
             elif port == entry.port and new_cost != entry.latency:
                 self.addEntry(route_dst, route_latency, port)
-                changed = True
-        if changed:
-            self.send_routes()
+        
+        self.send_routes()
         ##### End Stages 4, 10 #####
 
     def handle_link_up(self, port, latency):

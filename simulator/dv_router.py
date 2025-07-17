@@ -48,7 +48,6 @@ class DVRouter(DVRouterBase):
         ), "Split horizon and poison reverse can't both be on"
 
         self.start_timer()  # Starts signaling the timer at correct rate.
-
         # Contains all current ports and their latencies.
         # See the write-up for documentation.
         self.ports = Ports()
@@ -58,9 +57,11 @@ class DVRouter(DVRouterBase):
         self.table.owner = self
 
         ##### Begin Stage 10A #####
-
+        self.history = {}
+        self.reset_history()
         ##### End Stage 10A #####
-
+    def reset_history(self):
+        self.history = {}
     def add_static_route(self, host, port):
         """
         Adds a static route to this router's table.
@@ -100,6 +101,7 @@ class DVRouter(DVRouterBase):
         self.send(packet, port=port)
         ##### End Stage 2 #####
 
+
     def send_routes(self, force=False, single_port=None):
         """
         Send route advertisements for all routes in the table.
@@ -113,18 +115,30 @@ class DVRouter(DVRouterBase):
         """
         
         ##### Begin Stages 3, 6, 7, 8, 10 #####
+        to_send = []
+
         if force:
+            self.reset_history()
+        # [single_port] if single_port is not None else
+        ports =  self.ports.get_all_ports()
+        for port in ports:
             for host, entry in self.table.items():
-                for port in self.ports.get_all_ports():
-                    if entry.port == port:
-                        if self.POISON_REVERSE:
-                            self.send_route(port, host, INFINITY)
-                            continue
-                        if self.SPLIT_HORIZON:
-                            continue
+                if entry.port == port:
+                    if self.POISON_REVERSE:
+                        latency = INFINITY               
+                    elif self.SPLIT_HORIZON:
+                        continue                          
+                    else:
+                        latency = min(INFINITY, entry.latency)
+                else:
                     latency = min(INFINITY, entry.latency)
-                    self.send_route(port, host,latency )
-        ##### End Stages 3, 6, 7, 8, 10 #####
+
+                last_advertised = self.history.get(port,host)
+                if force or last_advertised != latency:
+                    self.send_route(port, host, latency)
+                    # update history
+                    self.history[(port,host)] = latency
+    #### End Stages 3, 6, 7, 8, 10 #####
 
     def expire_routes(self):
         """

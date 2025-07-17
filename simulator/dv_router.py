@@ -122,17 +122,13 @@ class DVRouter(DVRouterBase):
         ports = [single_port] if single_port is not None else self.ports.get_all_ports()
         for port in ports:
             for host, entry in self.table.items():
-
+                latency = min(INFINITY, entry.latency)
                 if entry.port == port:
                     if self.POISON_REVERSE:
-                        latency = INFINITY               
-                    elif self.SPLIT_HORIZON:
-                        continue                          
-                    else:
-                        latency = min(INFINITY, entry.latency)
-                else:
-                    latency = min(INFINITY, entry.latency)
-
+                        latency = INFINITY
+                        
+                    if self.SPLIT_HORIZON:
+                        continue
                 last_advertised = self.history.get((port, host))
                 if force or last_advertised != latency:
                     self.send_route(port, host, latency)

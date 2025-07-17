@@ -215,17 +215,15 @@ class DVRouter(DVRouterBase):
         self.ports.remove_port(port)
 
         ##### Begin Stage 10B #####
-        changed = False
+
         for host, table in self.table.items():
             if table.port == port:
                 if self.POISON_ON_LINK_DOWN:
                     self.table[host] = TableEntry(dst=host, port=table.port, latency=INFINITY, expire_time=api.current_time()+self.ROUTE_TTL)
-                # else:
-                    # self.table.pop(host)
-                changed = True
-        
-        if changed:
-            self.send_routes()
+
+
+
+        self.send_routes()
         ##### End Stage 10B #####
 
     # Feel free to add any helper methods!
